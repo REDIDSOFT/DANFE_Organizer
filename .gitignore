@@ -1,0 +1,32 @@
+# Arquivos compilados
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Arquivos temporários do Lazarus/FPC
+*.o
+*.ppu
+*.compiled
+*.or
+*.a
+lib/
+backup/
+*.bak
+*.lps
+*.res
+
+# Diretórios gerados
+lib/
+debug/
+release/
+
+# Arquivos de trabalho
+*.zip
+*.xml
+*.~*
+__history/
+
+# Arquivos específicos do DANFE Organizer
+DANFE_Org
+DANFE_Org.dbg
