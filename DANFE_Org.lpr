@@ -6,7 +6,19 @@ uses
   {$IFDEF UNIX}
   cthreads,
   {$ENDIF}
-  Classes, SysUtils, DateUtils, CustApp, Windows, Zipper, Crt,
+  Classes, SysUtils, DateUtils, CustApp, 
+  {$IFDEF WINDOWS}
+  Windows, 
+  {$ENDIF}
+  Zipper, 
+  {$IFDEF UNIX}
+  BaseUnix, Unix,
+  {$ENDIF}
+  {$IFDEF WINDOWS}
+  Crt,
+  {$ELSE}
+  termio,
+  {$ENDIF}
   DOM, XMLRead; // Added XML parsing units
 
 type
@@ -353,6 +365,23 @@ begin
   end;
 end;
 
+{$IFDEF UNIX}
+// Linux-specific key reading function
+function ReadKeyLinux: char;
+var
+  termios: termios;
+  c: char;
+begin
+  TCGetAttr(1, termios);
+  termios.c_lflag := termios.c_lflag and not (ICANON or ECHO);
+  TCSetAttr(1, TCSANOW, termios);
+  read(stdin, c);
+  Result := c;
+  termios.c_lflag := termios.c_lflag or (ICANON or ECHO);
+  TCSetAttr(1, TCSANOW, termios);
+end;
+{$ENDIF}
+
 function TDANFEORG.ShowMenu: TMenuOption;
 var
   Options: array[0..3] of string = (
@@ -367,18 +396,30 @@ var
   var
     I: Integer;
   begin
-    ClrScr; // limpa a tela
+    {$IFDEF WINDOWS}
+    ClrScr; // Windows CRT clear screen
+    {$ELSE}
+    Write(#27'[2J'#27'[H'); // ANSI escape sequence to clear screen
+    {$ENDIF}
     WriteLn('DANFE Organizer - Menu Principal');
     WriteLn('-------------------------------');
     for I := 0 to High(Options) do
     begin
       if I = CurrentIndex then
       begin
+        {$IFDEF WINDOWS}
         TextColor(White);
         TextBackground(Blue);
+        {$ELSE}
+        Write(#27'[1;37m'#27'[44m'); // White text, Blue background in ANSI
+        {$ENDIF}
         WriteLn(Options[I]);
+        {$IFDEF WINDOWS}
         TextColor(LightGray);
         TextBackground(Black);
+        {$ELSE}
+        Write(#27'[0m'); // Reset text formatting in ANSI
+        {$ENDIF}
       end else
         WriteLn(Options[I]);
     end;
@@ -389,13 +430,24 @@ begin
   CurrentIndex := 0;
   repeat
     DisplayMenu;
+    {$IFDEF WINDOWS}
     Key := ReadKey;
+    {$ELSE}
+    Key := ReadKeyLinux;
+    {$ENDIF}
     if Key = #0 then
     begin
+      {$IFDEF WINDOWS}
       Key := ReadKey;
+      {$ELSE}
+      Key := ReadKeyLinux;
+      {$ENDIF}
       case Key of
         #72: if CurrentIndex > 0 then Dec(CurrentIndex); // seta para cima
         #80: if CurrentIndex < High(Options) then Inc(CurrentIndex); // seta para baixo
+        // ANSI arrow keys for Linux
+        'A': if CurrentIndex > 0 then Dec(CurrentIndex); // Up arrow
+        'B': if CurrentIndex < High(Options) then Inc(CurrentIndex); // Down arrow
       end;
     end else if Key = #13 then Break; // ENTER seleciona
   until False;
