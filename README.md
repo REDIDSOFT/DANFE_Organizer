@@ -20,6 +20,7 @@ O programa oferece três opções:
 
 - Organiza automaticamente os arquivos XML da pasta atual
 - Cria estrutura de pastas ano/mês baseada na data do arquivo
+- Ele segue a tag dhEmi do xml
 - Exemplo: Um arquivo de Janeiro/2022 vai para `.\2022\01\`
 - Exibe barra de progresso em tempo real
 - Processa apenas arquivos da pasta atual (não inclui subpastas)
@@ -45,7 +46,7 @@ O programa oferece três opções:
 
 ## Requisitos do Sistema
 
-- Sistema operacional Windows
+- Compilador Free Pascal
 - Espaço em disco suficiente para organização
 - Permissões de leitura/gravação na pasta de execução
 
