@@ -6,7 +6,8 @@ uses
   {$IFDEF UNIX}
   cthreads,
   {$ENDIF}
-  Classes, SysUtils, DateUtils, CustApp, Windows, Zipper, Crt;
+  Classes, SysUtils, DateUtils, CustApp, Windows, Zipper, Crt,
+  DOM, XMLRead; // Added XML parsing units
 
 type
   TMenuOption = (moReorganize, moCompress, moBoth, moExit);  // adicionado moExit
@@ -32,6 +33,7 @@ type
     procedure CompactarPastas;
     procedure DrawProgressBar(Current, Total: Integer);
     function ShowMenu: TMenuOption;
+    function GetEmissionDateFromXML(const XMLFilePath: string): TDateTime;
   protected
     procedure DoRun; override;
   public
@@ -59,7 +61,18 @@ var
   Year, Month, Day: Word;
 begin
   SrcFile := IncludeTrailingPathDelimiter(FSourceDir) + FFileName;
-  FileDateTime := FileDateToDateTime(FileAge(SrcFile));
+  
+  // Get date from XML instead of file date
+  try
+    FileDateTime := TDANFEORG(FApp).GetEmissionDateFromXML(SrcFile);
+  except
+    on E: Exception do
+    begin
+      // Fallback to file date if XML parsing fails
+      FileDateTime := FileDateToDateTime(FileAge(SrcFile));
+    end;
+  end;
+  
   DecodeDate(FileDateTime, Year, Month, Day);
   
   DestFolder := IncludeTrailingPathDelimiter(FSourceDir) +
@@ -155,7 +168,17 @@ begin
 
     for I := 0 to Files.Count - 1 do
     begin
-      FileDateTime := FileDateToDateTime(FileAge(Files[I]));
+      // Get date from XML instead of file date
+      try
+        FileDateTime := GetEmissionDateFromXML(Files[I]);
+      except
+        on E: Exception do
+        begin
+          // Fallback to file date if XML parsing fails
+          FileDateTime := FileDateToDateTime(FileAge(Files[I]));
+        end;
+      end;
+      
       DecodeDate(FileDateTime, Year, Month, Day);
       
       DestFolder := IncludeTrailingPathDelimiter(CurrentPath) +
@@ -286,6 +309,49 @@ begin
   end;
 end;
 
+function TDANFEORG.GetEmissionDateFromXML(const XMLFilePath: string): TDateTime;
+var
+  Doc: TXMLDocument;
+  RootNode, NFe, infNFe, ide, dhEmi: TDOMNode;
+  EmissionDateStr: string;
+begin
+  Result := Now; // Default to current date in case of failure
+  
+  try
+    ReadXMLFile(Doc, XMLFilePath);
+    try
+      RootNode := Doc.DocumentElement;
+      if RootNode = nil then Exit;
+      
+      // Navigate the XML structure to find the dhEmi element
+      NFe := RootNode.FindNode('NFe');
+      if NFe = nil then Exit;
+      
+      infNFe := NFe.FindNode('infNFe');
+      if infNFe = nil then Exit;
+      
+      ide := infNFe.FindNode('ide');
+      if ide = nil then Exit;
+      
+      dhEmi := ide.FindNode('dhEmi');
+      if dhEmi = nil then Exit;
+      
+      EmissionDateStr := dhEmi.TextContent;
+      
+      // Parse ISO 8601 date format: 2023-12-29T00:00:00-03:00
+      if EmissionDateStr <> '' then
+        Result := ISO8601ToDate(EmissionDateStr);
+    finally
+      Doc.Free;
+    end;
+  except
+    on E: Exception do
+    begin
+      // Silently handle errors and default to file date
+      Result := FileDateToDateTime(FileAge(XMLFilePath));
+    end;
+  end;
+end;
 
 function TDANFEORG.ShowMenu: TMenuOption;
 var
